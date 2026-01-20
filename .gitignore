@@ -3,3 +3,4 @@ mlruns/
 .env
 __pycache__/
 *.pyc
+mlflow.db
