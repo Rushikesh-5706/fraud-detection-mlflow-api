@@ -1,12 +1,15 @@
+import os
 import pandas as pd
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import mlflow
 import mlflow.sklearn
-from pathlib import Path
+import joblib
 
 DATA_PATH = Path("data/raw_transactions.csv")
+MODEL_OUTPUT_PATH = Path("data/fraud_model.pkl")
 
 if __name__ == "__main__":
     if not DATA_PATH.exists():
@@ -21,7 +24,13 @@ if __name__ == "__main__":
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    mlflow.set_tracking_uri("http://localhost:5000")
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+
+    if tracking_uri:
+        mlflow.set_tracking_uri(tracking_uri)
+    else:
+        mlflow.set_tracking_uri("file:./mlruns")
+
     mlflow.set_experiment("Fraud Detection Training")
 
     with mlflow.start_run(run_name="RandomForest_v1"):
@@ -48,4 +57,7 @@ if __name__ == "__main__":
             registered_model_name="FraudDetectionModel"
         )
 
-    print("Model trained, logged, and registered with MLflow")
+        MODEL_OUTPUT_PATH.parent.mkdir(exist_ok=True)
+        joblib.dump(model, MODEL_OUTPUT_PATH)
+
+    print("Model trained locally, logged to MLflow, and fraud_model.pkl created.")
