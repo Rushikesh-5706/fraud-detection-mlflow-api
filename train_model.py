@@ -1,63 +1,53 @@
 import os
+import mlflow
+import mlflow.sklearn
 import pandas as pd
-from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-import mlflow
-import mlflow.sklearn
-import joblib
 
-DATA_PATH = Path("data/raw_transactions.csv")
-MODEL_OUTPUT_PATH = Path("data/fraud_model.pkl")
+DATA_PATH = "data/raw_transactions.csv"
+if not os.path.exists(DATA_PATH):
+    raise FileNotFoundError("Run generate_data.py first")
 
-if __name__ == "__main__":
-    if not DATA_PATH.exists():
-        raise FileNotFoundError("Run generate_data.py first")
+mlflow_tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+mlflow.set_tracking_uri(mlflow_tracking_uri)
 
-    df = pd.read_csv(DATA_PATH)
+df = pd.read_csv(DATA_PATH)
+X = df.drop(columns=["is_fraud"])
+y = df["is_fraud"]
 
-    X = df.drop(columns=["is_fraud"])
-    y = df["is_fraud"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+mlflow.set_experiment("Fraud Detection Training")
 
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+with mlflow.start_run(run_name="RandomForest_v1") as run:
+    model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
 
-    if tracking_uri:
-        mlflow.set_tracking_uri(tracking_uri)
-    else:
-        mlflow.set_tracking_uri("file:./mlruns")
+    mlflow.log_param("n_estimators", model.n_estimators)
+    mlflow.log_param("max_depth", model.max_depth)
+    mlflow.log_metric("accuracy", float(accuracy_score(y_test, y_pred)))
+    mlflow.log_metric("precision", float(precision_score(y_test, y_pred, zero_division=0)))
+    mlflow.log_metric("recall", float(recall_score(y_test, y_pred, zero_division=0)))
+    mlflow.log_metric("f1_score", float(f1_score(y_test, y_pred, zero_division=0)))
 
-    mlflow.set_experiment("Fraud Detection Training")
+    local_model_dir = "model_temp"
+    if os.path.exists(local_model_dir):
+        import shutil
+        shutil.rmtree(local_model_dir)
+    mlflow.sklearn.save_model(sk_model=model, path=local_model_dir)
+    mlflow.log_artifacts(local_model_dir, artifact_path="model")
 
-    with mlflow.start_run(run_name="RandomForest_v1"):
-        model = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=5,
-            random_state=42
-        )
-        model.fit(X_train, y_train)
+    run_id = run.info.run_id
+    model_uri = f"runs:/{run_id}/model"
 
-        y_pred = model.predict(X_test)
+print(f"Registered model URI: {model_uri}")
 
-        mlflow.log_param("n_estimators", model.n_estimators)
-        mlflow.log_param("max_depth", model.max_depth)
+client = mlflow.tracking.MlflowClient(tracking_uri=mlflow_tracking_uri)
+if "FraudDetectionModel" not in [m.name for m in client.search_registered_models()]:
+    client.create_registered_model(name="FraudDetectionModel")
 
-        mlflow.log_metric("accuracy", accuracy_score(y_test, y_pred))
-        mlflow.log_metric("precision", precision_score(y_test, y_pred))
-        mlflow.log_metric("recall", recall_score(y_test, y_pred))
-        mlflow.log_metric("f1_score", f1_score(y_test, y_pred))
-
-        mlflow.sklearn.log_model(
-            model,
-            artifact_path="fraud_model",
-            registered_model_name="FraudDetectionModel"
-        )
-
-        MODEL_OUTPUT_PATH.parent.mkdir(exist_ok=True)
-        joblib.dump(model, MODEL_OUTPUT_PATH)
-
-    print("Model trained locally, logged to MLflow, and fraud_model.pkl created.")
+model_version = client.create_model_version(name="FraudDetectionModel", source=model_uri, run_id=run_id)
+print(f"Model registered: name=FraudDetectionModel, version={model_version.version}")

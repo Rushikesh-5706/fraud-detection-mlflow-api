@@ -3,7 +3,10 @@ import json
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from app.api.v1.endpoints import router
-from app.core.config import settings
+from app.core.config import settings, setup_logging
+
+# Initialize logging configuration
+setup_logging()
 
 class JsonFormatter(logging.Formatter):
     def format(self, record):

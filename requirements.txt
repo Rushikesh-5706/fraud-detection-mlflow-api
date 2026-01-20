@@ -10,3 +10,4 @@ mlflow
 python-dotenv
 httpx
 pytest
+python-json-logger

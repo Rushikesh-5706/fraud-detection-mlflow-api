@@ -1,0 +1,6 @@
+__pycache__
+.pytest_cache
+mlruns
+data
+.git
+.gitignore
