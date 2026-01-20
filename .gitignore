@@ -1,7 +1,17 @@
-data/
-mlruns/
-.env
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.env
+
+# ML artifacts
+data/
+mlruns/
 mlflow.db
+
+# Docker
+*.log
+
+# macOS
 .DS_Store
