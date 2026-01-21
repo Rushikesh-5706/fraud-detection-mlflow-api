@@ -180,6 +180,7 @@ docker compose restart fraud-api
 
 ### 8. Verify the API endpoints (examples below).
 
+### API endpoints
 
 #### Health Check
 
