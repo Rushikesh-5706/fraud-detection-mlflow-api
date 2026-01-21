@@ -225,35 +225,38 @@ Expected status: `422 Unprocessable Entity` and a `detail` array explaining miss
 
 ## Screenshots
 
-All screenshots are available in the `screenshots/` directory and document the full execution flow.
-
+### 1. Infrastructure Status
 ![Docker Compose Status](./screenshots/01_docker_compose_ps.png)
+> **Verification**: Output of `docker compose ps` confirming the `fraud-api` and `mlflow` containers are operational.
 
-Output of docker compose ps showing fraud-api and mlflow containers running.
+---
 
+### 2. MLflow Experiment Tracking
 ![MLflow Experiment](./screenshots/02_mlflow_experiment.png)
+> **Metrics**: MLflow UI showing the training run, parameters, and accuracy metrics for `RandomForest_v1`.
 
-MLflow UI: Experiment page showing the training run and metrics for RandomForest_v1.
+---
 
+### 3. Model Registry
 ![MLflow Model Registry](./screenshots/03_mlflow_model_registry.png)
+> **Registry**: MLflow UI showing `FraudDetectionModel` version 1 successfully registered and ready for staging.
 
-MLflow UI: Models page showing FraudDetectionModel with version 1.
+---
 
-![Health Check](./screenshots/04_health_200.png)
+### 4. API Verification (Table View)
+Using a table prevents the descriptions for small screenshots from overlapping.
 
-curl output for /api/v1/health (200 OK and {"status":"ok"}).
+| Endpoint | Result | Screenshot |
+| :--- | :--- | :--- |
+| **Health Check** | `200 OK` | ![Health Check](./screenshots/04_health_200.png) |
+| **Valid Prediction** | `is_fraud: 0/1` | ![Predict Success](./screenshots/05_predict_200.png) |
+| **Validation Error** | `422 Unprocessable` | ![Validation Error](./screenshots/06_predict_422.png) |
 
-![Predict Success](./screenshots/05_predict_200.png)
+---
 
-curl output for a valid /predict request (200 OK and JSON {is_fraud, fraud_probability}).
-
-![Validation Error](./screenshots/06_predict_422.png)
-
-curl output for invalid /predict request showing 422 and validation details.
-
+### 5. CLI Model Verification
 ![CLI Verification](./screenshots/07_mlflow_registry_cli.png)
-
-Terminal output from the registry CLI verification command (the docker compose exec -T mlflow python3 - <<'PY' ... command above).
+> **Terminal**: Final confirmation of the model registry state directly from the container's Python environment.
 
 ---
 
