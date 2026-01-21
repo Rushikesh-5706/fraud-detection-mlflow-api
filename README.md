@@ -134,7 +134,9 @@ If you do not see `Model registered lines`, do not proceed — re-run the comman
 
 Open in browser:
 
-```http://localhost:5000```
+```
+http://localhost:5000
+```
 
 Go to Models and confirm `FraudDetectionModel` version `1` exists.
 
@@ -166,7 +168,9 @@ REGISTERED MODELS:
 
 ### 7. Restart the API so it picks the registered model (if necessary):
 
-```docker compose restart fraud-api```
+```
+docker compose restart fraud-api
+```
 
 ---
 
