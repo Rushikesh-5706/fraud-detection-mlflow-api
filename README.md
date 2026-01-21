@@ -54,6 +54,7 @@ The system exposes REST endpoints for health checks and fraud prediction, valida
 ---
 
 ## Prerequisites
+
 - Docker
 - Docker Compose
 
@@ -78,7 +79,10 @@ Key variables:
 
 ## Running the System (End-to-End)
 
+The recommended flow is to use Docker Compose to bring up the FastAPI service and the MLflow tracking server (with persistent backend). All commands below assume you are in the repository root.
+
 ### 1. Build and Start Services
+
 ```
 docker compose up --build -d
 ```
@@ -89,40 +93,101 @@ This starts:
 
 ---
 
-### 2. Generate Synthetic Data
-```
-docker compose exec fraud-api python generate_data.py
-```
+### 2. Wait for services to be healthy. You can inspect status with:
 
-This creates a synthetic dataset at `data/raw_transactions.csv` inside the container.
+```
+docker compose ps
+```
 
 ---
 
-### 3. Train and Register the Model
+### 3. Generate synthetic data (inside fraud-api container):
+
 ```
-docker compose exec fraud-api python train_model.py
+docker compose exec -T fraud-api python generate_data.py
 ```
 
-This step:
-- Trains a scikit-learn model
-- Logs parameters and metrics to MLflow
-- Registers the model as `FraudDetectionModel` (version `1`) in the MLflow Model Registry
+Expected output:
+
+```Synthetic data generated at data/raw_transactions.csv```
 
 ---
 
-### 4. Verify API Endpoints
+### 4. Train the model and register it to the running MLflow registry (CRITICAL):
+
+```docker compose exec -T fraud-api python train_model.py```
+
+Expected important output (example):
+
+```
+🏃 View run RandomForest_v1 at http://mlflow:5000/#/experiments/1/runs/<run_id>
+Registered model URI: runs:/<run_id>/model
+Model registered: name=FraudDetectionModel, version=1
+```
+
+
+If you do not see `Model registered lines`, do not proceed — re-run the command and inspect logs. See Troubleshooting.
+
+---
+
+### 5. Verify registered model via MLflow UI:
+
+Open in browser:
+
+```http://localhost:5000```
+
+Go to Models and confirm `FraudDetectionModel` version `1` exists.
+
+---
+
+### 6. Verify registry via CLI inside mlflow container:
+
+```
+docker compose exec -T mlflow python3 - <<'PY'
+import mlflow
+from mlflow.tracking import MlflowClient
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+client = MlflowClient()
+models = client.search_registered_models()
+print("REGISTERED MODELS:")
+for m in models:
+    print(f"- {m.name}: {[v.version for v in m.latest_versions]}")
+PY
+```
+
+Expected:
+
+```
+REGISTERED MODELS:
+- FraudDetectionModel: ['1']
+```
+
+---
+
+### 7. Restart the API so it picks the registered model (if necessary):
+
+```docker compose restart fraud-api```
+
+---
+
+### 8. Verify the API endpoints (examples below).
+
 
 #### Health Check
+
 ```
 curl -i http://localhost:8000/api/v1/health
 ```
+
 Expected response:
+
 ```
 HTTP/1.1 200 OK
 {"status": "ok"}
 ```
 
 #### Valid Prediction
+
 ```
 curl -i -X POST http://localhost:8000/api/v1/predict \
   -H "Content-Type: application/json" \
@@ -135,13 +200,17 @@ curl -i -X POST http://localhost:8000/api/v1/predict \
   }'
 ```
 
+Expected: `200 OK` with JSON body containing `is_fraud` (boolean) and `fraud_probability` (float between 0 and 1).
+
 #### Invalid Input (Validation Error)
+
 ```
 curl -i -X POST http://localhost:8000/api/v1/predict \
   -H "Content-Type: application/json" \
   -d '{ "transaction_amount": -10 }'
 ```
-Expected status: `422 Unprocessable Entity`
+
+Expected status: `422 Unprocessable Entity` and a `detail` array explaining missing fields and validation errors.
 
 ---
 
@@ -149,15 +218,33 @@ Expected status: `422 Unprocessable Entity`
 
 All screenshots are available in the `screenshots/` directory and document the full execution flow.
 
-| Screenshot | Description |
-|----------|-------------|
-| `01_docker_compose_ps.png` | Docker services running successfully |
-| `02_mlflow_experiment.png` | MLflow experiment with logged metrics |
-| `03_mlflow_model_registry.png` | Registered model visible in MLflow Model Registry |
-| `04_health_200.png` | Successful `/health` endpoint response |
-| `05_predict_200.png` | Valid `/predict` request returning a prediction |
-| `06_predict_422.png` | Input validation error (`422 Unprocessable Entity`) |
-| `07_mlflow_registry_cli.png` | Registered model verified via MLflow client API |
+![Docker Compose Status](./screenshots/01_docker_compose_ps.png)
+
+Output of docker compose ps showing fraud-api and mlflow containers running.
+
+![MLflow Experiment](./screenshots/02_mlflow_experiment.png)
+
+MLflow UI: Experiment page showing the training run and metrics for RandomForest_v1.
+
+![MLflow Model Registry](./screenshots/03_mlflow_model_registry.png)
+
+MLflow UI: Models page showing FraudDetectionModel with version 1.
+
+![Health Check](./screenshots/04_health_200.png)
+
+curl output for /api/v1/health (200 OK and {"status":"ok"}).
+
+![Predict Success](./screenshots/05_predict_200.png)
+
+curl output for a valid /predict request (200 OK and JSON {is_fraud, fraud_probability}).
+
+![Validation Error](./screenshots/06_predict_422.png)
+
+curl output for invalid /predict request showing 422 and validation details.
+
+![CLI Verification](./screenshots/07_mlflow_registry_cli.png)
+
+Terminal output from the registry CLI verification command (the docker compose exec -T mlflow python3 - <<'PY' ... command above).
 
 ---
 
