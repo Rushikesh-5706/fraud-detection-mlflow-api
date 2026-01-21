@@ -109,13 +109,17 @@ docker compose exec -T fraud-api python generate_data.py
 
 Expected output:
 
-```Synthetic data generated at data/raw_transactions.csv```
+```
+Synthetic data generated at data/raw_transactions.csv
+```
 
 ---
 
 ### 4. Train the model and register it to the running MLflow registry (CRITICAL):
 
-```docker compose exec -T fraud-api python train_model.py```
+```
+docker compose exec -T fraud-api python train_model.py
+```
 
 Expected important output (example):
 
