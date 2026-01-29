@@ -290,16 +290,6 @@ They are recreated automatically via the provided scripts.
 
 ---
 
-## Video Demonstration
-
-A full walkthrough video demonstrating setup, training, MLflow UI, and API usage can be added here:
-
-```
-<VIDEO_DEMO_URL>
-```
-
----
-
 ## Conclusion
 This project delivers a complete, reproducible fraud detection inference system that follows modern MLOps best practices. It is designed to be easily evaluated, deployed, and extended for real-world use cases.
 
